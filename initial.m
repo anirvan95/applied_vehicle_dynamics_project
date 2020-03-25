@@ -111,9 +111,9 @@ dt = 0.001;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Here you can ad your control parameters for the electric motor
 
-Kp_em = 0;
-Ki_em = 0;
-Kd_em = 0;
+Kp_em = 5.0;
+Ki_em = 0.8;
+Kd_em = 0.0;
 
 % Here you can ad your control parameters for the brake 
 
@@ -126,6 +126,9 @@ sim('SD2231_Lab1.slx')
 
 % Calculate the X-Y data, plot and estimate the optimum slip value
 % Plot longitudinal slip on X-axis and used friction mu on y-axis
+
+%%
+close all
 label = (ax>0);
 Fx = label.*Veh.ms.*ax.*0.5;
 mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
@@ -150,9 +153,10 @@ subplot(1,3,3), plot(init.throttle,'b', 'Linewidth', 1);
 
 pid_out = squeeze(PID_output.data);
 figure,
-plot(pid_out)
+plot(pid_out), title("PID Output")
 figure,
 plot(RL_radius.*rot_RL)
 hold on
 plot(vel)
 plot(rot_RL)
+legend("RL_omega", "vel", "rot")
