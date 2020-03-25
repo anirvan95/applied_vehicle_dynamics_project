@@ -126,5 +126,33 @@ sim('SD2231_Lab1.slx')
 
 % Calculate the X-Y data, plot and estimate the optimum slip value
 % Plot longitudinal slip on X-axis and used friction mu on y-axis
+label = (ax>0);
+Fx = label.*Veh.ms.*ax.*0.5;
+mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
+% for i = 1:4400
+%     plot(slip(i, 2), mu_r(i),'.r')
+%     hold on
+%     drawnow
+%     pause(0.001)
+% end
+%plot(slip(1:4000, 2), mu_r(1:4000))
+load('init.mat')
+time = dt.*(1:size(mu_r));
+subplot(1,3,1), plot(slip(:,2),'r')
+hold on
+subplot(1,3,1), plot(init.slip,'b');
+subplot(1,3,2), plot(vel*18/5,'r', 'Linewidth', 1);
+hold on
+subplot(1,3,2), plot(init.vel*18/5,'b', 'Linewidth', 1);
+subplot(1,3,3), plot(throttle,'r', 'Linewidth', 1);
+hold on
+subplot(1,3,3), plot(init.throttle,'b', 'Linewidth', 1);
 
-
+pid_out = squeeze(PID_output.data);
+figure,
+plot(pid_out)
+figure,
+plot(RL_radius.*rot_RL)
+hold on
+plot(vel)
+plot(rot_RL)
