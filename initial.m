@@ -108,18 +108,22 @@ dt = 0.001;
                 Veh.mu = Veh.mu(3)
         end
 
+    load('init.mat')        
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Here you can ad your control parameters for the electric motor
 
-Kp_em = 10.0;
-Ki_em = 0.0;
+Kp_em = 4.75;
+Ki_em = 0.8;
 Kd_em = 0.0;
 
 % Here you can ad your control parameters for the brake 
 
-Kp_brake = 0;
+Kp_brake = 5.0;
+Kp_brake_r = 5.0;
 Ki_brake = 0;
+Ki_brake_r = 1;
 Kd_brake = 0;
+Kd_brake_r = 0;
 
 % Run your model
 sim('SD2231_Lab1.slx')
@@ -130,19 +134,32 @@ sim('SD2231_Lab1.slx')
 %%
 close all
 label = (ax>0);
+label_br = (ax<0);
+% Fx = label.*Veh.ms.*ax.*0.5;
+% mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
+
 TFxr = label.*FxRL;
 TFxf = label.*FxFL;
 % mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
-mu_r = FxRL./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*(FxRL+FxFL));
-% for i = 1:4400
-%     plot(slip(i, 2), mu_r(i),'.r')
-%     hold on
-%     drawnow
-%     pause(0.001)
-% end
-plot(slip(1:4000, 2), mu_r(1:4000))
-load('init.mat')
-time = dt.*(1:size(mu_r));
+mu_tr = TFxr./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*(TFxr+TFxf));
+
+BFxr = abs(label_br.*FxRL);
+BFxf = abs(label_br.*FxFL);
+mu_br = BFxr./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*(BFxr+BFxf));
+mu_bf = BFxf./((1-Veh.lambda)*Veh.ms*g + Veh.h/Veh.L*(BFxr+BFxf));
+
+plot(mu_bf)
+hold on
+plot(mu_br)
+legend("front","rear")
+
+% figure, plot(slip(1:4000, 2), mu_tr(1:4000))
+figure, plot(slip(5000:7500,1),mu_br(5000:7500)), title("Rear tyre")
+figure, plot(slip(5000:7500,3),mu_bf(5000:7500)), title("Front tyre")
+
+%%
+close all
+time = dt.*(1:size(ax));
 subplot(1,3,1), plot(slip(:,2),'r')
 hold on
 subplot(1,3,1), plot(init.slip,'b');
@@ -151,6 +168,7 @@ hold on
 subplot(1,3,2), plot(init.vel*18/5,'b', 'Linewidth', 1);
 subplot(1,3,3), plot(throttle,'r', 'Linewidth', 1);
 hold on
+subplot(1,3,3), plot(Brake,'r--')
 subplot(1,3,3), plot(init.throttle,'b', 'Linewidth', 1);
 
 pid_out = squeeze(PID_output.data);
@@ -160,5 +178,38 @@ figure,
 plot(RL_radius.*rot_RL)
 hold on
 plot(vel)
+yyaxis right, plot(rot_RL)
+legend("RL\_omega", "vel", "rot")
+
+%%
+close all
+time = dt.*(1:size(ax));
+subplot(1,3,1), plot(slip(:,1),'r')
+hold on
+subplot(1,3,1), plot(init.slip_bR,'b'), title("slip\_bR")
+
+subplot(1,3,2), plot(slip(:,3),'r')
+hold on
+subplot(1,3,2), plot(init.slip_bF,'b'), title("slip\_bF")
+
+subplot(1,3,3), plot(vel*18/5,'r', 'Linewidth', 1);
+hold on
+subplot(1,3,3), plot(init.vel*18/5,'b', 'Linewidth', 1), title("speed")
+
+figure
+subplot(1,3,1), plot(Brake,'r')
+hold on
+subplot(1,3,1), plot(init.brake,'b', 'Linewidth', 1), title("Brake")
+
+pid_out_br = squeeze(PID_OUT_BR.data);
+pid_out_bf = squeeze(PID_OUT_BF.data);
+subplot(1,3,2), plot(pid_out_bf), title("PID Output front brake")
+subplot(1,3,3), plot(pid_out_br), title("PID output rear brake")
+
+figure,
+plot(RL_radius.*rot_RL)
+hold on
+plot(vel)
+yyaxis right
 plot(rot_RL)
-legend("RL_omega", "vel", "rot")
+legend("RL\_omega", "vel", "rot")
