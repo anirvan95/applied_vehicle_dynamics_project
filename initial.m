@@ -111,8 +111,8 @@ dt = 0.001;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Here you can ad your control parameters for the electric motor
 
-Kp_em = 5.0;
-Ki_em = 0.8;
+Kp_em = 10.0;
+Ki_em = 0.0;
 Kd_em = 0.0;
 
 % Here you can ad your control parameters for the brake 
@@ -130,15 +130,17 @@ sim('SD2231_Lab1.slx')
 %%
 close all
 label = (ax>0);
-Fx = label.*Veh.ms.*ax.*0.5;
-mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
+TFxr = label.*FxRL;
+TFxf = label.*FxFL;
+% mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
+mu_r = FxRL./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*(FxRL+FxFL));
 % for i = 1:4400
 %     plot(slip(i, 2), mu_r(i),'.r')
 %     hold on
 %     drawnow
 %     pause(0.001)
 % end
-%plot(slip(1:4000, 2), mu_r(1:4000))
+plot(slip(1:4000, 2), mu_r(1:4000))
 load('init.mat')
 time = dt.*(1:size(mu_r));
 subplot(1,3,1), plot(slip(:,2),'r')
