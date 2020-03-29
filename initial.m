@@ -118,10 +118,10 @@ Kd_em = 0.0;
 
 % Here you can ad your control parameters for the brake 
 
-Kp_brake = 5.0;
-Kp_brake_r = 5.0;
+Kp_brake = 8.0;
+Kp_brake_r = 8.0;
 Ki_brake = 0;
-Ki_brake_r = 1;
+Ki_brake_r = 2.5;
 Kd_brake = 0;
 Kd_brake_r = 0;
 
