@@ -112,9 +112,9 @@ dt = 0.001;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Here you can ad your control parameters for the electric motor
 
-Kp_em = 4.75;
-Ki_em = 0.8;
-Kd_em = 0.0;
+Kp_em = 10.75;
+Ki_em = 20.8;
+Kd_em = 0;
 
 % Here you can ad your control parameters for the brake 
 
