@@ -108,22 +108,18 @@ dt = 0.001;
                 Veh.mu = Veh.mu(3)
         end
 
-    load('init.mat')        
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Here you can ad your control parameters for the electric motor
 
-Kp_em = 4.75;
-Ki_em = 0.8;
+Kp_em = 6.5;
+Ki_em = 1.2;
 Kd_em = 0.0;
 
 % Here you can ad your control parameters for the brake 
 
-Kp_brake = 8.0;
-Kp_brake_r = 8.0;
+Kp_brake = 0;
 Ki_brake = 0;
-Ki_brake_r = 2.5;
 Kd_brake = 0;
-Kd_brake_r = 0;
 
 % Run your model
 sim('SD2231_Lab1.slx')
@@ -133,83 +129,82 @@ sim('SD2231_Lab1.slx')
 
 %%
 close all
-label = (ax>0);
-label_br = (ax<0);
-% Fx = label.*Veh.ms.*ax.*0.5;
+acclabel = (ax>0);
+brklabel = (ax<0);
+AFxr = acclabel.*FxRL;
+ANr = acclabel.*(FzRL+FzRR);
+AFxf = acclabel.*FxFL;
+ANf = acclabel.*(FzFL+FzFR);
+
+BFxr = brklabel.*FxRL;
+BNr = brklabel.*(FzRL+FzRR);
+BFxf = brklabel.*FxFL;
+BNf = brklabel.*(FzFL+FzFR);
+
 % mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
+%mu_tr = Fxr./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*(Fxr+Fxf));
+Amu_r = AFxr./ANr;
+Amu_f = AFxf./ANf;
+Bmu_f = -BFxf./BNf;
+Bmu_r = -BFxr./BNr;
 
-TFxr = label.*FxRL;
-TFxf = label.*FxFL;
-% mu_r = Fx./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*Fx);
-mu_tr = TFxr./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*(TFxr+TFxf));
+%% Plot 2.c [Modified_slip_observer]
+time = dt.*(1:size(Amu_r,1));
+figure,plot(squeeze(time),slip(:,2),'b','Linewidth',2);
+title("Rear tractive slip",'FontSize',12,'FontWeight','bold')
+xlabel('Time [sec]','FontSize',10,'FontWeight','bold')
+ylabel('RL Slip','FontSize',10,'FontWeight','bold')
+grid on
 
-BFxr = abs(label_br.*FxRL);
-BFxf = abs(label_br.*FxFL);
-mu_br = BFxr./(Veh.lambda*Veh.ms*g - Veh.h/Veh.L*(BFxr+BFxf));
-mu_bf = BFxf./((1-Veh.lambda)*Veh.ms*g + Veh.h/Veh.L*(BFxr+BFxf));
+time = dt.*(1:size(Bmu_r,1));
+figure,plot(squeeze(time),slip(:,4),'r','Linewidth',2);
+title("Front tractive slip",'FontSize',12,'FontWeight','bold')
+xlabel('Time [sec]','FontSize',10,'FontWeight','bold')
+ylabel('FL Slip','FontSize',10,'FontWeight','bold')
+grid on
 
-plot(mu_bf)
-hold on
-plot(mu_br)
-legend("front","rear")
 
-% figure, plot(slip(1:4000, 2), mu_tr(1:4000))
-figure, plot(slip(5000:7500,1),mu_br(5000:7500)), title("Rear tyre")
-figure, plot(slip(5000:7500,3),mu_bf(5000:7500)), title("Front tyre")
+time = dt.*(1:size(Bmu_r,1));
+figure,plot(squeeze(time),slip(:,1),'b','Linewidth',2);
+title("Rear braking slip",'FontSize',12,'FontWeight','bold')
+xlabel('Time [sec]','FontSize',10,'FontWeight','bold')
+ylabel('RL Slip','FontSize',10,'FontWeight','bold')
+grid on
 
-%%
-close all
-time = dt.*(1:size(ax));
-subplot(1,3,1), plot(slip(:,2),'r')
-hold on
-subplot(1,3,1), plot(init.slip,'b');
-subplot(1,3,2), plot(vel*18/5,'r', 'Linewidth', 1);
-hold on
-subplot(1,3,2), plot(init.vel*18/5,'b', 'Linewidth', 1);
-subplot(1,3,3), plot(throttle,'r', 'Linewidth', 1);
-hold on
-subplot(1,3,3), plot(Brake,'r--')
-subplot(1,3,3), plot(init.throttle,'b', 'Linewidth', 1);
+time = dt.*(1:size(Bmu_r,1));
+figure,plot(squeeze(time),slip(:,3),'r','Linewidth',2);
+title("Front braking slip",'FontSize',12,'FontWeight','bold')
+xlabel('Time [sec]','FontSize',10,'FontWeight','bold')
+ylabel('FL Slip','FontSize',10,'FontWeight','bold')
+grid on
 
-pid_out = squeeze(PID_output.data);
-figure,
-plot(pid_out), title("PID Output")
-figure,
-plot(RL_radius.*rot_RL)
-hold on
-plot(vel)
-yyaxis right, plot(rot_RL)
-legend("RL\_omega", "vel", "rot")
+%%Used friction over longitudinal slip
+time = dt.*(1:size(Bmu_r,1));
+figure,plot(slip(1:4000,2),Amu_r(1:4000),'k','Linewidth',2);
+title("Rear Friction vs Tractive Slip",'FontSize',12,'FontWeight','bold')
+xlabel('RL Slip','FontSize',10,'FontWeight','bold')
+ylabel('\mu_r','FontSize',10,'FontWeight','bold')
+grid on
 
-%%
-close all
-time = dt.*(1:size(ax));
-subplot(1,3,1), plot(slip(:,1),'r')
-hold on
-subplot(1,3,1), plot(init.slip_bR,'b'), title("slip\_bR")
+figure,plot(slip(5000:7600,1),Bmu_r(5000:7600),'b','Linewidth',2);
+title("Rear Friction vs Braking Slip",'FontSize',12,'FontWeight','bold')
+xlabel('RL Slip','FontSize',10,'FontWeight','bold')
+ylabel('\mu_r','FontSize',10,'FontWeight','bold')
+grid on
 
-subplot(1,3,2), plot(slip(:,3),'r')
-hold on
-subplot(1,3,2), plot(init.slip_bF,'b'), title("slip\_bF")
+figure,plot(slip(5000:7600,3),Bmu_f(5000:7600),'r','Linewidth',2);
+title("Front Friction vs Braking Slip",'FontSize',12,'FontWeight','bold')
+xlabel('FL Slip','FontSize',10,'FontWeight','bold')
+ylabel('\mu_f','FontSize',10,'FontWeight','bold')
+grid on
 
-subplot(1,3,3), plot(vel*18/5,'r', 'Linewidth', 1);
-hold on
-subplot(1,3,3), plot(init.vel*18/5,'b', 'Linewidth', 1), title("speed")
+InitialData.slip = slip;
+InitialData.throttle = throttle;
+InitialData.ax = ax;
+InitialData.Amu_f = Amu_f;
+InitialData.Amu_r = Amu_r;
+InitialData.Bmu_f = Bmu_f;
+InitialData.Bmu_r = Amu_r;
 
-figure
-subplot(1,3,1), plot(Brake,'r')
-hold on
-subplot(1,3,1), plot(init.brake,'b', 'Linewidth', 1), title("Brake")
+save 'InitialData.mat' 'InitialData'
 
-pid_out_br = squeeze(PID_OUT_BR.data);
-pid_out_bf = squeeze(PID_OUT_BF.data);
-subplot(1,3,2), plot(pid_out_bf), title("PID Output front brake")
-subplot(1,3,3), plot(pid_out_br), title("PID output rear brake")
-
-figure,
-plot(RL_radius.*rot_RL)
-hold on
-plot(vel)
-yyaxis right
-plot(rot_RL)
-legend("RL\_omega", "vel", "rot")
