@@ -1,7 +1,7 @@
 %----------------------------------------------------------------
 % Template created for the course SD2231 by Mikael Nybacka 2019
-% Following file is the start file for the Simulink implementation 
-% of the integration, model-based, and washout filter.
+% Following file is the start file for the state estimation using
+% Uncented Kalman Filter (UKF).
 %----------------------------------------------------------------
 clear all;
 close all;
@@ -12,7 +12,7 @@ disp(' ');
 
 % Set global variables so that they can be accessed from other matlab
 % functions and files
-global vbox_file_name
+global lf lr Cf Cr mass Iz vbox_file_name
 
 %----------------------------
 % LOAD DATA FROM VBOX SYSTEM
@@ -127,7 +127,7 @@ Lx_relax=0.05;      % Longitudinal relaxation lenth of tyre (m)
 Ly_relax=0.15;      % Lateral relaxation lenth of tyre (m)
 Roll_res=0.01;      % Rolling resistance of tyre
 rollGrad=deg2rad(4.5);       % rollangle deg per latacc
-rx=0.29;            % distance from CoG to IMU x-axle
+rx=0.29;         % distance from CoG to IMU x-axle
 ry=0;               % distance from CoG to IMU y-axle
 rz=0;               % distance from CoG to IMU z-axle
 
@@ -144,7 +144,7 @@ g=9.81;             % Gravity constant
 %--------------------------------------------
 
 Time            = vbo.channels(1, 2).data-vbo.channels(1, 2).data(1,1);
-yawRate_VBOX    = vbo.channels(1, 56).data.*(-pi/180); %VBOX z-axis is pointing downwards, hence (-)
+yawRate_VBOX    = vbo.channels(1, 56).data.*(-pi/180);%VBOX z-axis is pointing downwards, hence (-)
 vx_VBOX         = vbo.channels(1, 54).data./3.6;
 vy_VBOX         = vbo.channels(1, 52).data./3.6;
 SteerAngle      = vbo.channels(1, 39).data./Ratio;
@@ -152,45 +152,14 @@ ax_VBOX         = vbo.channels(1, 57).data.*g;
 ay_VBOX         = vbo.channels(1, 58).data.*g;
 Beta_VBOX       = (vy_VBOX + rx*yawRate_VBOX)./vx_VBOX;
 
-%% Steady state check 
+n = length(Time);
+dt = Time(2)-Time(1);
+
 for iter = 1:length(Time)-1
     vy_dot(iter) = vy_VBOX(iter+1)-vy_VBOX(iter)/(Time(iter+1) - Time(iter));
     yawRate_dot_VBOX(iter) = (yawRate_VBOX(iter+1)-yawRate_VBOX(iter))/(Time(iter+1) - Time(iter));
     ay_COG(iter) = ay_VBOX(iter) + rx*yawRate_dot_VBOX(iter) - ry.*yawRate_dot_VBOX(iter);
 end
-
-%ay_COG = ay_VBOX + rx.*yawRate_dot_VBOX' - ry.*yawRate_dot_VBOX;
-%vy_COG = vy_VBOX + rx*yawRate_VBOX;
-
-%% Model based Slip
-for iter = 1:length(vx_VBOX)
-    vy_model_denom = ((lf+lr)*(lf+lr)*Cf*Cr + mass*vx_VBOX(iter)*vx_VBOX(iter)*(lr*Cr - lf*Cf));
-    if (vy_model_denom <= eps)
-        vy_model_denom = eps;
-    end
-    vy_model_num = vx_VBOX(iter)*((lr*(lf+lr)*Cf*Cr - lf*Cf*mass*vx_VBOX(iter)*vx_VBOX(iter)));
-    if(vx_VBOX(iter)<0.001)
-        vx(iter) = 0.001;
-    else
-        vx(iter) = vx_VBOX(iter);
-    end
-    vy_model(iter) = (vy_model_num*SteerAngle(iter))/vy_model_denom;
-    beta_model(iter) = vy_model(iter)/vx(iter);
-end
-figure, 
-plot(beta_model,'r')
-hold on
-plot(Beta_VBOX,'b')
-
-Beta_VBOX_smooth=smooth(Beta_VBOX(1:end-1),0.01,'rlowess'); 
-[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_model(1:end-1)',Beta_VBOX_smooth);
-disp(' ');
-fprintf('Model based calculation\n')
-fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
-fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
-
-
-%% Integration based Slip 
 standstill_time = abs(vy_VBOX(1:end-1))<eps;
 mean_ay_COG = mean(ay_COG(standstill_time));
 if isnan(mean_ay_COG)
@@ -198,65 +167,104 @@ if isnan(mean_ay_COG)
 else
     cfilt_ay_COG = lowpass(ay_COG, 0.5, 100) - mean_ay_COG;
 end
-%cfilt_ay_COG = lowpass(ay_COG, 0.5, 100);
-% window_size = 100;
-% window_mean = [];
-% label = zeros(length(cfilt_ay_COG),1);
-% for i=window_size:(length(cfilt_ay_COG)-window_size)
-%     window_data = abs(cfilt_ay_COG(i-window_size/2:i+window_size/2));
-%     window_mean = [window_mean;mean(window_data)];
-%     label(i) = mean(window_data)>0.6;
-% end
-%cfilt_ay_COG = ay_COG;
-label = abs(cfilt_ay_COG)>=0.15;
 
-for iter = 1:length(Time)-1
-value(iter) = cfilt_ay_COG(iter)*(1-rollGrad) - yawRate_VBOX(iter)*vx_VBOX(iter);
-end
-smooth_value = value'.*double(label);
-sum = 0;
+%% 
+%----------------------------------------------
+% SET MEASUREMENT AND PROCESS NOICE COVARIANCES
+%----------------------------------------------
+% Use as starting value 0.1 for each of the states in Q matrix
+Q=[0.5, 0, 0;0, 0.5, 0;0, 0, 0.25];
 
-for iter = 1:length(Time)-1
-    sum = sum + value(iter)*Ts;
-    vy_inter(iter) = sum;
-end
-%hp_vy_inter = highpass(vy_inter, 1, 100);
-beta_inter = (vy_inter./vx(1:end-1));
-beta_inter(label<1)=0;
-figure,
-plot(Beta_VBOX,'b')
-hold on
-plot(beta_inter,'r')
+% Use as starting value 0.01 for each of the measurements in R matrix
+R=[0.01, 0 , 0;0, 0.05, 0; 0, 0, 0.01];
+
+Y = [vx_VBOX(1:end-1)';cfilt_ay_COG;yawRate_VBOX(1:end-1)'];
+%--------------------------------------------------
+% SET INITIAL STATE AND STATE ESTIMATION COVARIANCE
+%--------------------------------------------------
+x_0 = [0;0;0];
+P_0 = diag([1e-1;1e-1;1e-2]);
 
 
-[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_inter',Beta_VBOX_smooth);
+%-----------------------
+% INITIALISING VARIABLES
+%-----------------------
+
+
+%Parameters that might be needed in the measurement and state functions are added to predictParam
+predictParam.dt=dt; 
+
+% Handles to state and measurement model functions.
+state_func_UKF = @Vehicle_state_eq;
+meas_func_UKF = @Vehicle_measure_eq;
+
+%-----------------------
+% FILTERING LOOP FOR UKF 
+%-----------------------
 disp(' ');
-fprintf('Integration based calculation\n')
+disp('Filtering the signal with UKF...');
+
+alpha = 1e-3;
+beta = 2;
+kappa = 0.1;
+M = x_0;
+P = P_0;
+Beta_ukf = zeros(size(SteerAngle));
+
+
+for i = 2:n-1
+    predictParam.input = SteerAngle(i);
+    [M(:,i),P] = ukf_predict1(M(:,i-1),P,state_func_UKF,Q,predictParam);
+    [M(:,i),P,K,MU,S,LH] = ukf_update1(M(:,i),P,Y(:,i),meas_func_UKF,R,predictParam);
+    % ad your predict and update functions, see the scripts ukf_predict1.m
+%     [x_hat,P_hat] = ut_transform(x_bar,P_bar,state_func_UKF,predictParam);
+%     P_hat = P_hat + Q;
+%   
+%     % and ukf_update1.m
+%     [z_hat,S,C] = ut_transform(x_hat,P_hat,meas_func_UKF,predictParam);
+%     S = S + R;
+%     K = C / S;
+%     z = [vx_VBOX(i);ay_VBOX(i);yawRate_VBOX(i)];
+%     x_bar = x_bar + K*(z - z_hat);
+%     P_bar = P_bar - K*S*K';
+%     Error = [Error,(z-z_hat)];
+    if i==round(n/4)
+        disp(' ');
+        disp('1/4 of the filtering done...');
+        disp(' ');
+    end
+    if i==round(n/2)
+        disp(' ');
+        disp('1/2 of the filtering done...');
+        disp(' ');
+    end
+    if i==round(n*(3/4))
+        disp(' ');
+        disp('3/4 of the filtering done... Stay tuned for the results...');
+        disp(' ');
+    end
+end
+
+%----------------------------------------
+% CALCULATE THE SLIP ANGLE OF THE VEHICLE
+%----------------------------------------
+Beta_UKF = atan2(M(2,:),M(1,:));
+label = abs(cfilt_ay_COG)>0.15;
+Beta_UKF(label<1) = 0;
+    
+%---------------------------------------------------------
+% CALCULATE THE ERROR VALES FOR THE ESTIMATE OF SLIP ANGLE
+%---------------------------------------------------------
+Beta_VBOX_smooth=smooth(Beta_VBOX(1:end-1),0.01,'rlowess'); 
+[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(Beta_UKF',Beta_VBOX_smooth);
+disp(' ');
 fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
 fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 
-
-
-%% Washout
-T = 0.1;
-s = tf('s');
-cont_sys = 1/(1+s*T);
-dis_sys = c2d(cont_sys, 0.01);
-a = dis_sys.Numerator{1};
-b = dis_sys.Denominator{1};
-prefiltervy_washout = (vy_model(1:end-1)' + T*(cfilt_ay_COG'.*(1-rollGrad) - yawRate_VBOX(1:end-1).*vx(1:end-1)'));
-filtVy_washout = filter(a, b, prefiltervy_washout);
-beta_washout = filtVy_washout./vx(1:end-1)';
-beta_washout(label<1)=0;
-figure,
-plot(Beta_VBOX,'b')
+%-----------------
+% PLOT THE RESULTS
+%-----------------
+plot(Beta_VBOX,'r');
 hold on
-plot(beta_washout,'r')
-
-[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_washout,Beta_VBOX_smooth);
-disp(' ');
-fprintf('Wash out filter based calculation\n')
-fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
-fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
-
+plot(Beta_UKF,'b');
 

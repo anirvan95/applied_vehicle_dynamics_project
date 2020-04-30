@@ -25,8 +25,8 @@ global lf lr Cf Cr mass Iz vbox_file_name
 
 %vbox_file_name='S90__035.VBO';   %Standstill
 
-vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
-%vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
+%vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
+vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
 %vbox_file_name='S90__040.VBO';  %Step steer to the left, v=100km/h
 %vbox_file_name='S90__041.VBO';  %Frequency sweep, v=50km/h
 
@@ -151,6 +151,8 @@ SteerAngle      = vbo.channels(1, 39).data./Ratio;
 ax_VBOX         = vbo.channels(1, 57).data.*g;
 ay_VBOX         = vbo.channels(1, 58).data.*g;
 Beta_VBOX       = (vy_VBOX + rx*yawRate_VBOX)./vx_VBOX;
+
+
 
 n = length(Time);
 dt = Time(2)-Time(1);
