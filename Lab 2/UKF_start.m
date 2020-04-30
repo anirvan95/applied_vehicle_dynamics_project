@@ -25,8 +25,8 @@ global lf lr Cf Cr mass Iz vbox_file_name
 
 %vbox_file_name='S90__035.VBO';   %Standstill
 
-%vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
-vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
+vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
+%vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
 %vbox_file_name='S90__040.VBO';  %Step steer to the left, v=100km/h
 %vbox_file_name='S90__041.VBO';  %Frequency sweep, v=50km/h
 
@@ -121,12 +121,12 @@ Iz=3089;            % Yaw inertia (kg-m2)
 tw=1.617;           % Track width (m)
 h_cog = 0.570;      % Height of CoG above ground
 Ratio=16.3;         % Steering gear ratio
-Cf=100000;          % Lateral stiffness front axle (N)
-Cr=100000;          % Lateral stiffness rear axle (N)
+Cf=160000;          % Lateral stiffness front axle (N)
+Cr=225000;          % Lateral stiffness rear axle (N)
 Lx_relax=0.05;      % Longitudinal relaxation lenth of tyre (m)
 Ly_relax=0.15;      % Lateral relaxation lenth of tyre (m)
 Roll_res=0.01;      % Rolling resistance of tyre
-rollGrad=4.5;       % rollangle deg per latacc
+rollGrad=deg2rad(4.5);       % rollangle deg per latacc
 rx=0.29;         % distance from CoG to IMU x-axle
 ry=0;               % distance from CoG to IMU y-axle
 rz=0;               % distance from CoG to IMU z-axle
@@ -155,21 +155,34 @@ Beta_VBOX       = (vy_VBOX + rx*yawRate_VBOX)./vx_VBOX;
 n = length(Time);
 dt = Time(2)-Time(1);
 
+for iter = 1:length(Time)-1
+    vy_dot(iter) = vy_VBOX(iter+1)-vy_VBOX(iter)/(Time(iter+1) - Time(iter));
+    yawRate_dot_VBOX(iter) = (yawRate_VBOX(iter+1)-yawRate_VBOX(iter))/(Time(iter+1) - Time(iter));
+    ay_COG(iter) = ay_VBOX(iter) + rx*yawRate_dot_VBOX(iter) - ry.*yawRate_dot_VBOX(iter);
+end
+standstill_time = abs(vy_VBOX(1:end-1))<eps;
+mean_ay_COG = mean(ay_COG(standstill_time));
+if isnan(mean_ay_COG)
+    cfilt_ay_COG = lowpass(ay_COG, 0.5, 100);
+else
+    cfilt_ay_COG = lowpass(ay_COG, 0.5, 100) - mean_ay_COG;
+end
+
 %----------------------------------------------
 % SET MEASUREMENT AND PROCESS NOICE COVARIANCES
 %----------------------------------------------
 % Use as starting value 0.1 for each of the states in Q matrix
-Q=0.1*eye(3);
+Q=[0.1, 0, 0;0, 0.1, 0;0, 0, 0.1];
 
 % Use as starting value 0.01 for each of the measurements in R matrix
-R=0.01*eye(3);
+R=[0.01, 0 , 0;0, 0.01, 0; 0, 0, 0.01];
 
-Y = [vx_VBOX';ay_VBOX';yawRate_VBOX'];
+Y = [vx_VBOX(1:end-1)';cfilt_ay_COG;yawRate_VBOX(1:end-1)'];
 %--------------------------------------------------
 % SET INITIAL STATE AND STATE ESTIMATION COVARIANCE
 %--------------------------------------------------
 x_0 = [0;0;0];
-P_0 = diag([1e-2;1e-3;1e-3]);
+P_0 = diag([1e-2;1e-2;1e-3]);
 
 
 %-----------------------
@@ -196,13 +209,12 @@ kappa = 0.1;
 M = x_0;
 P = P_0;
 Beta_ukf = zeros(size(SteerAngle));
-Error(1) = 0;
 
-for i = 2:n
-    predictParam.input = SteerAngle(i);
+
+for i = 2:n-1
+    predictParam.input = SteerAngle(i-1);
     [M(:,i),P] = ukf_predict1(M(:,i-1),P,state_func_UKF,Q,predictParam);
     [M(:,i),P,K,MU,S,LH] = ukf_update1(M(:,i),P,Y(:,i),meas_func_UKF,R,predictParam);
-    Error(i) = M(1,i) - Y(1,i);
     % ad your predict and update functions, see the scripts ukf_predict1.m
 %     [x_hat,P_hat] = ut_transform(x_bar,P_bar,state_func_UKF,predictParam);
 %     P_hat = P_hat + Q;
@@ -215,7 +227,6 @@ for i = 2:n
 %     x_bar = x_bar + K*(z - z_hat);
 %     P_bar = P_bar - K*S*K';
 %     Error = [Error,(z-z_hat)];
-    
     if i==round(n/4)
         disp(' ');
         disp('1/4 of the filtering done...');
@@ -241,7 +252,7 @@ Beta_UKF = atan2(M(2,:),M(1,:));
 %---------------------------------------------------------
 % CALCULATE THE ERROR VALES FOR THE ESTIMATE OF SLIP ANGLE
 %---------------------------------------------------------
-Beta_VBOX_smooth=smooth(Beta_VBOX,0.01,'rlowess'); 
+Beta_VBOX_smooth=smooth(Beta_VBOX(1:end-1),0.01,'rlowess'); 
 [e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(Beta_UKF',Beta_VBOX_smooth);
 disp(' ');
 fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
@@ -250,7 +261,7 @@ fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 %-----------------
 % PLOT THE RESULTS
 %-----------------
-plot(Beta_VBOX_smooth,'r');
+plot(Beta_VBOX,'r');
 hold on
 plot(Beta_UKF,'b');
 

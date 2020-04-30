@@ -26,9 +26,9 @@ global vbox_file_name
 %vbox_file_name='S90__035.VBO';   %Standstill
 
 %vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
-vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
+%vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
 %vbox_file_name='S90__040.VBO';  %Step steer to the left, v=100km/h
-%vbox_file_name='S90__041.VBO';  %Frequency sweep, v=50km/h
+vbox_file_name='S90__041.VBO';  %Frequency sweep, v=50km/h
 
 
 vboload
@@ -121,12 +121,12 @@ Iz=3089;            % Yaw inertia (kg-m2)
 tw=1.617;           % Track width (m)
 h_cog = 0.570;      % Height of CoG above ground
 Ratio=16.3;         % Steering gear ratio
-Cf=175000;          % Lateral stiffness front axle (N)
-Cr=175000;          % Lateral stiffness rear axle (N)
+Cf=160000;          % Lateral stiffness front axle (N)
+Cr=225000;          % Lateral stiffness rear axle (N)
 Lx_relax=0.05;      % Longitudinal relaxation lenth of tyre (m)
 Ly_relax=0.15;      % Lateral relaxation lenth of tyre (m)
 Roll_res=0.01;      % Rolling resistance of tyre
-rollGrad=4.5;       % rollangle deg per latacc
+rollGrad=deg2rad(4.5);       % rollangle deg per latacc
 rx=0.29;            % distance from CoG to IMU x-axle
 ry=0;               % distance from CoG to IMU y-axle
 rz=0;               % distance from CoG to IMU z-axle
@@ -155,7 +155,7 @@ Beta_VBOX       = (vy_VBOX + rx*yawRate_VBOX)./vx_VBOX;
 %% Steady state check 
 for iter = 1:length(Time)-1
     vy_dot(iter) = vy_VBOX(iter+1)-vy_VBOX(iter)/(Time(iter+1) - Time(iter));
-    yawRate_dot_VBOX(iter) = yawRate_VBOX(iter+1)-yawRate_VBOX(iter)/(Time(iter+1) - Time(iter));
+    yawRate_dot_VBOX(iter) = (yawRate_VBOX(iter+1)-yawRate_VBOX(iter))/(Time(iter+1) - Time(iter));
     ay_COG(iter) = ay_VBOX(iter) + rx*yawRate_dot_VBOX(iter) - ry.*yawRate_dot_VBOX(iter);
 end
 
@@ -177,42 +177,85 @@ for iter = 1:length(vx_VBOX)
     vy_model(iter) = (vy_model_num*SteerAngle(iter))/vy_model_denom;
     beta_model(iter) = vy_model(iter)/vx(iter);
 end
-
-subplot(1,3,1),plot(beta_model,'b')
+figure, 
+plot(beta_model,'r')
 hold on
-subplot(1,3,1),plot(Beta_VBOX,'r')
+plot(Beta_VBOX,'b')
 
+Beta_VBOX_smooth=smooth(Beta_VBOX(1:end-1),0.01,'rlowess'); 
+[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_model(1:end-1)',Beta_VBOX_smooth);
+disp(' ');
+fprintf('Model based calculation\n')
+fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
+fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 
-% subplot(1,2,2),plot(vy_dot,'.k')
-% hold on
-% subplot(1,2,2),plot(yawrate_dot,'.g')
 
 %% Integration based Slip 
-for iter = 1:length(Time)-1
-value(iter) = ay_COG(iter)*(1-rollGrad) - yawRate_VBOX(iter)*vx_VBOX(iter);
+standstill_time = abs(vy_VBOX(1:end-1))<eps;
+mean_ay_COG = mean(ay_COG(standstill_time));
+if isnan(mean_ay_COG)
+    cfilt_ay_COG = lowpass(ay_COG, 0.5, 100);
+else
+    cfilt_ay_COG = lowpass(ay_COG, 0.5, 100) - mean_ay_COG;
 end
-vy_inter = cumtrapz(Time(1:end-1), value);
-beta_inter = vy_inter./vx(1:end-1);
-labels = vx<=1;
-beta_inter(labels==1) = 0;
+%cfilt_ay_COG = lowpass(ay_COG, 0.5, 100);
+window_size = 100;
+window_mean = [];
+label = zeros(length(cfilt_ay_COG),1);
+for i=window_size:(length(cfilt_ay_COG)-window_size)
+    window_data = abs(cfilt_ay_COG(i-window_size/2:i+window_size/2));
+    window_mean = [window_mean;mean(window_data)];
+    label(i) = mean(window_data)>0.6;
+end
+%cfilt_ay_COG = ay_COG;
+%label = abs(vy_VBOX(1:end-1))>=0.04;
 
-subplot(1,3,2),plot(Beta_VBOX,'b')
+for iter = 1:length(Time)-1
+value(iter) = cfilt_ay_COG(iter)*(1-rollGrad) - yawRate_VBOX(iter)*vx_VBOX(iter);
+end
+smooth_value = value'.*double(label);
+sum = 0;
+
+for iter = 1:length(Time)-1
+    sum = sum + value(iter)*Ts;
+    vy_inter(iter) = sum;
+end
+beta_inter = (vy_inter./vx(1:end-1));
+beta_inter(label<1)=0;
+figure,
+plot(Beta_VBOX,'b')
 hold on
-subplot(1,3,2),plot(beta_inter,'r')
+plot(beta_inter,'r')
+
+
+[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_inter',Beta_VBOX_smooth);
+disp(' ');
+fprintf('Integration based calculation\n')
+fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
+fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
+
+
 
 %% Washout
-T = 0.5;
+T = 0.1;
 s = tf('s');
 cont_sys = 1/(1+s*T);
 dis_sys = c2d(cont_sys, 0.01);
 a = dis_sys.Numerator{1};
 b = dis_sys.Denominator{1};
-prefiltervy_washout = (vy_model(1:end-1)' + T*(ay_COG'.*(1-rollGrad) - yawRate_VBOX(1:end-1).*vx(1:end-1)'));
+prefiltervy_washout = (vy_model(1:end-1)' + T*(cfilt_ay_COG'.*(1-rollGrad) - yawRate_VBOX(1:end-1).*vx(1:end-1)'));
 filtVy_washout = filter(a, b, prefiltervy_washout);
 beta_washout = filtVy_washout./vx(1:end-1)';
 
-subplot(1,3,3),plot(Beta_VBOX,'b')
+figure,
+plot(Beta_VBOX,'b')
 hold on
-subplot(1,3,3),plot(beta_washout,'r')
+plot(beta_washout,'r')
+
+[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_washout,Beta_VBOX_smooth);
+disp(' ');
+fprintf('Wash out filter based calculation\n')
+fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
+fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 
 
