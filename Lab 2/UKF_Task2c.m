@@ -26,8 +26,8 @@ global lf lr Cf Cr mass Iz vbox_file_name
 %vbox_file_name='S90__035.VBO';   %Standstill
 
 %vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
-vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
-%vbox_file_name='S90__040.VBO';  %Step steer to the left, v=100km/h
+%vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
+vbox_file_name='S90__040.VBO';  %Step steer to the left, v=100km/h
 %vbox_file_name='S90__041.VBO';  %Frequency sweep, v=50km/h
 
 
@@ -152,8 +152,6 @@ ax_VBOX         = vbo.channels(1, 57).data.*g;
 ay_VBOX         = vbo.channels(1, 58).data.*g;
 Beta_VBOX       = (vy_VBOX + rx*yawRate_VBOX)./vx_VBOX;
 
-
-
 n = length(Time);
 dt = Time(2)-Time(1);
 
@@ -170,21 +168,22 @@ else
     cfilt_ay_COG = lowpass(ay_COG, 0.5, 100) - mean_ay_COG;
 end
 
+%% 
 %----------------------------------------------
 % SET MEASUREMENT AND PROCESS NOICE COVARIANCES
 %----------------------------------------------
 % Use as starting value 0.1 for each of the states in Q matrix
-Q=[0.1, 0, 0;0, 0.1, 0;0, 0, 0.1];
+Q=[0.5, 0, 0;0, 0.5, 0;0, 0, 0.25];
 
 % Use as starting value 0.01 for each of the measurements in R matrix
-R=[0.01, 0 , 0;0, 0.01, 0; 0, 0, 0.01];
+R=[0.01, 0 , 0;0, 0.05, 0; 0, 0, 0.01];
 
 Y = [vx_VBOX(1:end-1)';cfilt_ay_COG;yawRate_VBOX(1:end-1)'];
 %--------------------------------------------------
 % SET INITIAL STATE AND STATE ESTIMATION COVARIANCE
 %--------------------------------------------------
 x_0 = [0;0;0];
-P_0 = diag([1e-2;1e-2;1e-3]);
+P_0 = diag([1e-1;1e-1;1e-2]);
 
 
 %-----------------------
@@ -204,31 +203,26 @@ meas_func_UKF = @Vehicle_measure_eq;
 %-----------------------
 disp(' ');
 disp('Filtering the signal with UKF...');
-
-alpha = 1e-3;
-beta = 2;
-kappa = 0.1;
+% alpha_vect = 0.1:0.2:1;
+% beta_vect = 0.1:0.2:1;
+% for x = 1:length(alpha_vect)
+%     x
+%     for y = 1:length(beta_vect)
+%         y
+alpha = 0.5;
+beta = 0.1;
+kappa = 0;
 M = x_0;
 P = P_0;
 Beta_ukf = zeros(size(SteerAngle));
 
 
 for i = 2:n-1
-    predictParam.input = SteerAngle(i-1);
-    [M(:,i),P] = ukf_predict1(M(:,i-1),P,state_func_UKF,Q,predictParam);
-    [M(:,i),P,K,MU,S,LH] = ukf_update1(M(:,i),P,Y(:,i),meas_func_UKF,R,predictParam);
-    % ad your predict and update functions, see the scripts ukf_predict1.m
-%     [x_hat,P_hat] = ut_transform(x_bar,P_bar,state_func_UKF,predictParam);
-%     P_hat = P_hat + Q;
-%   
-%     % and ukf_update1.m
-%     [z_hat,S,C] = ut_transform(x_hat,P_hat,meas_func_UKF,predictParam);
-%     S = S + R;
-%     K = C / S;
-%     z = [vx_VBOX(i);ay_VBOX(i);yawRate_VBOX(i)];
-%     x_bar = x_bar + K*(z - z_hat);
-%     P_bar = P_bar - K*S*K';
-%     Error = [Error,(z-z_hat)];
+    predictParam.input = SteerAngle(i);
+    P_vect(:,:,i) = P;
+    [M(:,i),P] = ukf_predict1(M(:,i-1),P,state_func_UKF,Q,predictParam, alpha,beta,kappa);
+    [M(:,i),P,K,MU,S,LH] = ukf_update1(M(:,i),P,Y(:,i),meas_func_UKF,R,predictParam, alpha,beta,kappa);
+     
     if i==round(n/4)
         disp(' ');
         disp('1/4 of the filtering done...');
@@ -246,24 +240,39 @@ for i = 2:n-1
     end
 end
 
-%----------------------------------------
-% CALCULATE THE SLIP ANGLE OF THE VEHICLE
-%----------------------------------------
+% % ----------------------------------------
+% % CALCULATE THE SLIP ANGLE OF THE VEHICLE
+% % ----------------------------------------
 Beta_UKF = atan2(M(2,:),M(1,:));
+label = abs(cfilt_ay_COG)>0.15;
+Beta_UKF(label<1) = 0;
 
-%---------------------------------------------------------
-% CALCULATE THE ERROR VALES FOR THE ESTIMATE OF SLIP ANGLE
-%---------------------------------------------------------
-Beta_VBOX_smooth=smooth(Beta_VBOX(1:end-1),0.01,'rlowess'); 
+% % ---------------------------------------------------------
+% % CALCULATE THE ERROR VALES FOR THE ESTIMATE OF SLIP ANGLE
+% % ---------------------------------------------------------
+Beta_VBOX_smooth=smooth(Beta_VBOX(1:end-1),0.01,'rlowess');
 [e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(Beta_UKF',Beta_VBOX_smooth);
 disp(' ');
 fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
 fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 
-%-----------------
-% PLOT THE RESULTS
-%-----------------
+% mse_error(x,y) = e_beta_mean;
+% max_error(x,y) = e_beta_max;
+% % -----------------
+% % PLOT THE RESULTS
+% % -----------------
+figure,
 plot(Beta_VBOX,'r');
 hold on
-plot(Beta_UKF,'b');
+plot(Beta_UKF,'b','Linewidth',1.5);
+legend(["Beta\_VBOX","Beta\_UKF"],'Location','best')
+drawnow
 
+% subplot(1,3,1),plot(squeeze(P_vect(1,1,:)),'g','Linewidth',2)
+% ylabel('Variance of $v_x$','Interpreter','latex','Linewidth',2)
+% subplot(1,3,2),plot(squeeze(P_vect(2,2,:)),'r','Linewidth',2)
+% ylabel('Variance of $v_y$','Interpreter','latex','Linewidth',2)
+% subplot(1,3,3),plot(squeeze(P_vect(3,3,:)),'b','Linewidth',2)
+% ylabel('Variance of $\dot{\psi}_z$','Interpreter','latex','Linewidth',2)
+%     end
+% end

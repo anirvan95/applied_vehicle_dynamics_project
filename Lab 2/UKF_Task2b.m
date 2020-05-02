@@ -25,10 +25,10 @@ global lf lr Cf Cr mass Iz vbox_file_name
 
 %vbox_file_name='S90__035.VBO';   %Standstill
 
-%vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
+vbox_file_name='S90__036.VBO';   %Circular driving to the left, radius=8m
 %vbox_file_name='S90__038.VBO';  %Slalom, v=30km/h
 %vbox_file_name='S90__040.VBO';  %Step steer to the left, v=100km/h
-vbox_file_name='S90__041.VBO';  %Frequency sweep, v=50km/h
+%vbox_file_name='S90__041.VBO';  %Frequency sweep, v=50km/h
 
 
 vboload
@@ -121,7 +121,7 @@ Iz=3089;            % Yaw inertia (kg-m2)
 tw=1.617;           % Track width (m)
 h_cog = 0.570;      % Height of CoG above ground
 Ratio=16.3;         % Steering gear ratio
-Cf=160000;          % Lateral stiffness front axle (N)
+Cf=140000;          % Lateral stiffness front axle (N)
 Cr=225000;          % Lateral stiffness rear axle (N)
 Lx_relax=0.05;      % Longitudinal relaxation lenth of tyre (m)
 Ly_relax=0.15;      % Lateral relaxation lenth of tyre (m)
@@ -152,6 +152,8 @@ ax_VBOX         = vbo.channels(1, 57).data.*g;
 ay_VBOX         = vbo.channels(1, 58).data.*g;
 Beta_VBOX       = (vy_VBOX + rx*yawRate_VBOX)./vx_VBOX;
 
+
+
 n = length(Time);
 dt = Time(2)-Time(1);
 
@@ -168,22 +170,21 @@ else
     cfilt_ay_COG = lowpass(ay_COG, 0.5, 100) - mean_ay_COG;
 end
 
-%% 
 %----------------------------------------------
 % SET MEASUREMENT AND PROCESS NOICE COVARIANCES
 %----------------------------------------------
 % Use as starting value 0.1 for each of the states in Q matrix
-Q=[0.5, 0, 0;0, 0.5, 0;0, 0, 0.25];
+Q=[0.1, 0, 0;0, 0.1, 0;0, 0, 0.1];
 
 % Use as starting value 0.01 for each of the measurements in R matrix
-R=[0.01, 0 , 0;0, 0.05, 0; 0, 0, 0.01];
+R=[0.01, 0 , 0;0, 0.01, 0; 0, 0, 0.01];
 
-Y = [vx_VBOX(1:end-1)';cfilt_ay_COG;yawRate_VBOX(1:end-1)'];
+Y = [vx_VBOX(1:end-1)';ay_COG;yawRate_VBOX(1:end-1)'];
 %--------------------------------------------------
 % SET INITIAL STATE AND STATE ESTIMATION COVARIANCE
 %--------------------------------------------------
 x_0 = [0;0;0];
-P_0 = diag([1e-1;1e-1;1e-2]);
+P_0 = diag([1e-2;1e-2;1e-3]);
 
 
 %-----------------------
@@ -214,6 +215,7 @@ Beta_ukf = zeros(size(SteerAngle));
 
 for i = 2:n-1
     predictParam.input = SteerAngle(i);
+    P_vect(:,:,i) = P;
     [M(:,i),P] = ukf_predict1(M(:,i-1),P,state_func_UKF,Q,predictParam);
     [M(:,i),P,K,MU,S,LH] = ukf_update1(M(:,i),P,Y(:,i),meas_func_UKF,R,predictParam);
     % ad your predict and update functions, see the scripts ukf_predict1.m
@@ -249,9 +251,7 @@ end
 % CALCULATE THE SLIP ANGLE OF THE VEHICLE
 %----------------------------------------
 Beta_UKF = atan2(M(2,:),M(1,:));
-label = abs(cfilt_ay_COG)>0.15;
-Beta_UKF(label<1) = 0;
-    
+
 %---------------------------------------------------------
 % CALCULATE THE ERROR VALES FOR THE ESTIMATE OF SLIP ANGLE
 %---------------------------------------------------------
@@ -261,10 +261,19 @@ disp(' ');
 fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
 fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 
-%-----------------
+%------------------
 % PLOT THE RESULTS
-%-----------------
+%------------------
 plot(Beta_VBOX,'r');
 hold on
 plot(Beta_UKF,'b');
+legend(["Beta\_VBOX","Beta\_UKF"],'Location','best')
+drawnow
 
+%% Covariance analysis 
+subplot(1,3,1),plot(squeeze(P_vect(1,1,:)),'g','Linewidth',2)
+ylabel('Variance of $v_x$','Interpreter','latex','Linewidth',2)
+subplot(1,3,2),plot(squeeze(P_vect(2,2,:)),'r','Linewidth',2)
+ylabel('Variance of $v_y$','Interpreter','latex','Linewidth',2)
+subplot(1,3,3),plot(squeeze(P_vect(3,3,:)),'b','Linewidth',2)
+ylabel('Variance of $\dot{\psi}_z$','Interpreter','latex','Linewidth',2)
