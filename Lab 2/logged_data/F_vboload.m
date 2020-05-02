@@ -38,7 +38,7 @@ while (~feof(fid))
 			next_section = line(2:(size(line,2) - 1));
 			break;
 		else
-			buffer = { buffer{:} line };
+			buffer = [ buffer(:)' {line} ];
 		end
 	end
 	
@@ -99,7 +99,7 @@ function handle_header
 		newchan.name = lower(char(chan_name));
 		vbo.channels = [vbo.channels newchan];
 		
-		fprintf(1, ' Channel %-2d = %s\n', size(vbo.channels,2), newchan.name);
+% 		fprintf(1, ' Channel %-2d = %s\n', size(vbo.channels,2), newchan.name);
 	end
 
 %% search for standard channels
@@ -156,7 +156,7 @@ function handle_data_next
 
 	line = fgetl(fid);								% get first line
 	
-	if (isempty(regexp(line, '\d,\d')))				% comma-separated decimal?
+	if (isempty(regexp(line, '\d,\d', 'once')))				% comma-separated decimal?
 		comma_sep = 0;
 	else
 		comma_sep = 1;
