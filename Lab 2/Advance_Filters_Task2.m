@@ -198,7 +198,7 @@ for man = 1:4
     else
         cfilt_ay_COG = lowpass(ay_COG, 0.5, 100) - mean_ay_COG;
     end
-    %%Zeroing out integration value when ay < 1.5g
+    %%Zeroing out integration value when ay < 1g
     label = abs(cfilt_ay_COG)>=0.1;
     value = cfilt_ay_COG.*(1-rollGrad) - yawRate_VBOX(1:end-1).*vx(1:end-1);
     smooth_value = value'.*double(label);
