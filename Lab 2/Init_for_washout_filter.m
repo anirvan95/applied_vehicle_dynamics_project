@@ -201,14 +201,15 @@ yawRate_dot_VBOX = smooth(yawRate_dot_VBOX,0.01,'rlowess');
     fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 
 %% Integration based Slip 
-standstill_time = abs(vy_VBOX(1:end-1))<eps;
-mean_ay_COG = mean(ay_COG(standstill_time));
-if isnan(mean_ay_COG)
-    cfilt_ay_COG = lowpass(ay_COG, 49, 100);
-else
-    cfilt_ay_COG = lowpass(ay_COG, 49, 100) - mean_ay_COG;
-end
-
+% standstill_time = abs(vy_VBOX(1:end-1))<eps;
+% mean_ay_COG = mean(ay_COG(standstill_time));
+% if isnan(mean_ay_COG)
+%     cfilt_ay_COG = lowpass(ay_COG, 49, 100);
+% else
+%     cfilt_ay_COG = lowpass(ay_COG, 49, 100) - mean_ay_COG;
+% end
+% cfilt_ay_COG = lowpass(ay_COG, 49, 100);
+cfilt_ay_COG = ay_COG;
 % window_size = 100;
 % window_mean = [];
 % label = zeros(length(cfilt_ay_COG),1);
@@ -229,13 +230,16 @@ for iter = 1:length(Time)-1
     sum = sum + value(iter)*Ts;
     vy_inter(iter) = sum;
 end
-hp_vy_inter = highpass(vy_inter, 0.04, 100);
+% hp_vy_inter = highpass(vy_inter, 0.04, 100);
+hp_vy_inter = vy_inter;
 beta_inter = (hp_vy_inter./vx(1:end-1));
 % beta_inter(label<1)=0;
 % figure,
-% plot(Beta_VBOX,'b')
-% hold on
-% plot(beta_inter,'r')
+subplot(2,2,man)
+plot(vy_VBOX,'b')
+hold on
+plot(hp_vy_inter,'r')
+legend(["vy\_VBOX","vy\_integral"],'Location','best')
 [e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_inter,Beta_VBOX_smooth);
 disp(' ');
 fprintf('Integration based calculation\n')
@@ -245,10 +249,11 @@ fprintf('The Max error of Beta estimation is: %d \n',e_beta_max);
 % 
 % 
 %% Washout
-T = 0.5;
+T_lp = 2.0;
+T_hp = 0.5;
 s = tf('s');
-cont_sys_lp = 1/(1+s*T(m));
-cont_sys_hp = s*T/(1+s*T(m));
+cont_sys_lp = 1/(1+s*T_lp);
+cont_sys_hp = s*T_hp/(1+s*T_hp);
 dis_sys_lp = c2d(cont_sys_lp, 0.01);
 dis_sys_hp = c2d(cont_sys_hp, 0.01);
 a_lp = dis_sys_lp.Numerator{1};
@@ -257,17 +262,20 @@ a_hp = dis_sys_hp.Numerator{1};
 b_hp = dis_sys_hp.Denominator{1};
 % prefiltervy_washout = (vy_model(1:end-1) + T*(cfilt_ay_COG.*(1-rollGrad) - yawRate_VBOX(1:end-1).*vx(1:end-1)));
 % filtVy_washout = filter(a_lp, b_lp, prefiltervy_washout);
-filtVy_washout = filter(a_lp, b_lp, vy_model) + filter(a_hp, b_hp, hp_vy_inter);
-beta_washout = filtVy_washout./vx(1:end-1);
+    filtVy_washout = filter(a_lp, b_lp, vy_model(1:end-1)) + filter(a_hp, b_hp, hp_vy_inter);
+    beta_washout = filtVy_washout./vx(1:end-1);
 % beta_washout(label<1)=0;
-subplot(2,2,man)
-plot(Beta_VBOX_smooth,'b')
-hold on
-plot(beta_washout,'r')
-legend(["Beta\_VBOX","Beta\_washout"],'Location','best')
-drawnow
 
-[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_washout,Beta_VBOX_smooth);
+subplot(2,2,man)
+
+% beta_washout = smooth(beta_washout,0.01,'rlowess');
+% figure
+% plot(Beta_VBOX_smooth,'b')
+% hold on
+% plot(beta_washout,'r')
+% legend(["Beta\_VBOX","Beta\_washout"],'Location','best')
+% drawnow
+[e_beta_mean,e_beta_max,time_at_max,error] = errorCalc(beta_washout,Beta_VBOX_smooth(1:size(beta_washout,1)));
 disp(' ');
 fprintf('Wash out filter based calculation\n')
 fprintf('The MSE of Beta estimation is: %d \n',e_beta_mean);
