@@ -205,9 +205,6 @@ meas_func_UKF = @Vehicle_measure_eq;
 disp(' ');
 disp('Filtering the signal with UKF...');
 
-alpha = 1e-3;
-beta = 2;
-kappa = 0.1;
 M = x_0;
 P = P_0;
 Beta_ukf = zeros(size(SteerAngle));
