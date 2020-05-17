@@ -1,6 +1,6 @@
-clc
-clear all
-close all
+% clc
+% clear all
+% close all
 
 m = 22000;
 j = 700000;
@@ -80,23 +80,45 @@ plot(t1,X(3,:),'b')
 % eqns = [Fa1+Fa2 == -cz*zdot;Fa1*l1-Fa2*l2==-cx*xdot];
 % sln = solve(eqns,[Fa1,Fa2])
 
-%Feedback based
-cz = 1000;
-cx = 1000;
-Ash = [0, 1, 0, 0;
-    -(k1+k2)/m, 0, (k1*l1 - k2*l2)/m, 0;
-    0, 0, 0, 1;
-    (k1*l1 - k2*l2)/j, 0, -(k1*l1*l1 + k2*l2*l2)/j, 0];
-Bsh = [0,0,0,0;
-    k1/m, k2/m, -1/m, -1/m;
-    0,0,0,0;
-    -k1*l1/j, k2*l2/j, l1/j, -l2/j];
 
-Csh = [0, 1, 0, 0;
+%% Feedback based
+cz = 100;
+cx = 5000;
+% Ash = [0, 1, 0, 0;
+%     -(k1+k2)/m, 0, (k1*l1 - k2*l2)/m, 0;
+%     0, 0, 0, 1;
+%     (k1*l1 - k2*l2)/j, 0, -(k1*l1*l1 + k2*l2*l2)/j, 0];
+% Bsh = [0,0,0,0;
+%     k1/m, k2/m, -1/m, -1/m;
+%     0,0,0,0;
+%     -k1*l1/j, k2*l2/j, l1/j, -l2/j];
+% 
+% Csh = [0, 1, 0, 0;
+%     0, 0, 0, 1];
+% 
+% Dsh = zeros(2,4);
+
+Ash = [0, 0, 0, 0;
+    -(k1+k2)/m, cz/m, (k1*l1 - k2*l2)/m, 0;
+    0, 0, 0, 0;
+    (k1*l1 - k2*l2)/j, 0, -(k1*l1*l1 + k2*l2*l2)/j, -cx/j];
+Bsh = [0,0,-1/cz,-1/cz;
+    k1/m, k2/m, 0, 0;
+    0,0,-l1/cx,l2/cx;
+    -k1*l1/j, k2*l2/j, 0, 0];
+
+Csh = [1,0, 0, 0;
+    0, 1, 0, 0;
+    0, 0, 1, 0;
     0, 0, 0, 1];
 
-Dsh = zeros(2,4);
+Dsh = zeros(4,4);
 
+
+fb_tf = [0, -cz*l2/(l1+l2),0, -cx/(l1+l2);
+    0, -cz*l1/(l1+l2), 0, cx/(l1+l2)];
+
+%%
 sys = ss(Ash,Bsh,Csh,Dsh);
 dsys = c2d(sys, h1);
 X = [0;0;0;0];
