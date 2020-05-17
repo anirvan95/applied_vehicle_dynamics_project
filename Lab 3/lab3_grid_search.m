@@ -1,4 +1,4 @@
-%%Gaar phar grid search 
+%%Intuitive grid search 
 clc
 clear all
 close all
@@ -12,12 +12,12 @@ tf_damped = (cp*s + kp)/(mp*s*s + cp*s + kp);
 
 h1 = 0.01;
 t1 = 0:h1:2*pi;
-omega = 1; 
+omega = 6.28; 
 u_sin = 0.05*sin(omega*t1);
 
 impulse_amp = 0.05;
 h2 = 0.01;
-t2 = 0:h2:40;
+t2 = 0:h2:10;
 u_impulse = zeros(length(t2),1);
 u_impulse(10) = impulse_amp;
 
@@ -27,8 +27,8 @@ steadyState = movmean(abs(y_damped_impulse),25) < 1e-5;
 indices = find(steadyState == 1);
 settlingTime_damped = indices(1)*h2;
 [pks_damped,loc_damped] = findpeaks(abs(y_damped_impulse));
-dp_vect = -0.5:0.01:0.015;
-dd_vect = -0.5:0.1:2.0;
+dp_vect = [0,0];
+dd_vect = -0.5:0.01:3.0;
 
 for i=1:length(dp_vect)
     i
@@ -69,3 +69,5 @@ for i=1:length(dp_vect)
         end
     end
 end
+
+
