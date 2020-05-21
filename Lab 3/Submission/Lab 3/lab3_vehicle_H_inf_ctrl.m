@@ -1,9 +1,9 @@
-%% This is a Matlab file for designing H_infinity controller (assignment 3
-%% of SD2231)
+clc
 clear all
+close all
 s=tf('s');
 
-% systme parameters
+% system parameters
 m=22000;   %kg
 j=700e3;   %kgm^2
 c=40e3;    %Ns/m
@@ -33,7 +33,6 @@ Cpass = eye(4);
 Dpass = zeros(4,4);
 
 
-
 %% State space model for skyhook contorl
 Ask=[0 1 0 0
     -2*k/m 0 0 0
@@ -53,8 +52,8 @@ Dsk=zeros(2,4);
 sys = ss(Ask,Bsk,Csk,Dsk);
 [wn,zeta] = damp(sys);
 
+%%Task 10.1
 %Weighting functions
-
 %For penalizing actuator force
 Wa1=(0.00175*s+1)/(0.00025*s+1);
 Wa2=Wa1;
@@ -71,6 +70,7 @@ kb=2.055e3;%input('Enter the gain for Wb = ');
 kchi=4.1404e4;%input('Enter the gain for Wchi = ');
 Wb=(kb*s1b*s2b)/((s-s1b)*(s-s2b));
 Wchi=(kchi*s1chi*s2chi)/((s-s1chi)*(s-s2chi));
+
 
 %%Analysis Weighing function
 % kb_vect = [100;1000;1e4;1e5];
@@ -112,12 +112,15 @@ Pe=minreal(Pe);%This syntax cancels pole-zero pairs in transfer
 [K,Pec,gamma,info]=hinfsyn(Pe,nmeas,ncont,'method','lmi'); % for working with the error
 [Ainf, Binf, Cinf, Dinf]=ssdata(K);
 
-%updating Csk and Dsk to generate outputs
+%updating Csk and Dsk to generate all the outputs
 Csk=eye(4);
 Dsk=zeros(4,4);
 %Now use the controller K in your simulation
-data = sim('Hinf_simulation.slx');
-data2 = sim('Skyhook_simulation.slx');
+
+%%Select signal in Simulation 
+%%Task 10.1
+data = sim('lab3_vehicle_H_inf_sim.slx');
+
 figure,
 subplot(2,2,1),
 plot(data.input_singal,'k');
@@ -144,14 +147,14 @@ legend('Damped System','H_{\infty} System');
 grid on
 
 subplot(2,2,4)
-plot(data.force_output.Time, data.force_output.Data(:,1),'b','Linewidth',1)
+plot(data.hinf_force_output.Time, data.hinf_force_output.Data(:,1),'b','Linewidth',1)
 hold on
-plot(data.force_output.Time, data.force_output.Data(:,2),'r','Linewidth',1)
+plot(data.hinf_force_output.Time, data.hinf_force_output.Data(:,2),'r','Linewidth',1)
 xlabel('Time (sec)');
 ylabel('Amplitude F (N)');
 legend('Fa_1','Fa_2');
 grid on
 
-sgtitle('Impulse response of vehicle model');
+sgtitle('Sinusoidal 1 Hz response of vehicle model');
 
 

@@ -21,12 +21,14 @@ ks = 0.0632;
 
 tf_2dof = (cp*cs*s^2 + (cp*ks + cs*kp)*s + kp*ks)/(mp*ms*s^4 + (ms*cp + ms*cs + mp*cs)*s^3 + (ms*kp + ms*ks + mp*ks + cp*cs)*s^2 + (cp*ks + cs*kp)*s + kp*ks);
 
+%%Task 6.2
 bode(tf_1dof,'r');
 hold on;
 bode(tf_2dof,'b');
 legend('1 DOF', '2 DOF')
 grid on
 
+%%Defining input signals
 h1 = 0.01;
 omega = 0.626;
 t1 = 0:h1:2*pi/omega;
@@ -59,14 +61,14 @@ psd = abs((H.^2)).*(Sw);
 %%Skyhook controller
 T_vect = [0.1, 1];
 T = T_vect(1);
-y_sin_skyhook = genResponse2DOF_skyhook(u_sin,h1,T_vect(1));
-y_sin_skyhook_2 = genResponse2DOF_skyhook(u_sin,h1,T_vect(2));
-y_impulse_skyhook = genResponse2DOF_skyhook(u_impulse,h2,T_vect(1));
-y_impulse_skyhook_2 = genResponse2DOF_skyhook(u_impulse,h2,T_vect(2));
-y_step_skyhook = genResponse2DOF_skyhook(u_step,h3,T_vect(1));
-y_step_skyhook_2 = genResponse2DOF_skyhook(u_step,h3,T_vect(2));
+y_sin_skyhook = genResponse(u_sin,h1,T_vect(1));
+y_sin_skyhook_2 = genResponse(u_sin,h1,T_vect(2));
+y_impulse_skyhook = genResponse(u_impulse,h2,T_vect(1));
+y_impulse_skyhook_2 = genResponse(u_impulse,h2,T_vect(2));
+y_step_skyhook = genResponse(u_step,h3,T_vect(1));
+y_step_skyhook_2 = genResponse(u_step,h3,T_vect(2));
 
-
+%%Task 7.1
 figure,
 plot(t1,u_sin,'-k','Linewidth',1)
 hold on

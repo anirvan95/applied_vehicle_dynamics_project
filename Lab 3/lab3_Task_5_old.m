@@ -85,13 +85,12 @@ naturalFreq = eig(A);
 % plot(t3,X_passive_impulse(2,:),'g')
 % grid on
 
-<<<<<<< HEAD
-=======
 
 %% Skyhook
 %Feedback based
-cz = 5e4;
-cx = 5e4;
+cz = 1e5;
+cx = 3e6;
+
 Ash = [0, 1, 0, 0;
     -(k1+k2)/m, 0, (k1*l1 - k2*l2)/m, 0;
     0, 0, 0, 1;
@@ -100,104 +99,71 @@ Bsh = [0,0,0,0;
     k1/m, k2/m, -1/m, -1/m;
     0,0,0,0;
     -k1*l1/j, k2*l2/j, l1/j, -l2/j];
->>>>>>> 0bb8c2762a898fb0fc8cf65b89c99be22310c0cd
-
-%% Feedback based
-cz = 100;
-cx = 5000;
-% Ash = [0, 1, 0, 0;
-%     -(k1+k2)/m, 0, (k1*l1 - k2*l2)/m, 0;
-%     0, 0, 0, 1;
-%     (k1*l1 - k2*l2)/j, 0, -(k1*l1*l1 + k2*l2*l2)/j, 0];
-% Bsh = [0,0,0,0;
-%     k1/m, k2/m, -1/m, -1/m;
-%     0,0,0,0;
-%     -k1*l1/j, k2*l2/j, l1/j, -l2/j];
-% 
-% Csh = [0, 1, 0, 0;
-%     0, 0, 0, 1];
-% 
-% Dsh = zeros(2,4);
-
-Ash = [0, 0, 0, 0;
-    -(k1+k2)/m, cz/m, (k1*l1 - k2*l2)/m, 0;
-    0, 0, 0, 0;
-    (k1*l1 - k2*l2)/j, 0, -(k1*l1*l1 + k2*l2*l2)/j, -cx/j];
-Bsh = [0,0,-1/cz,-1/cz;
-    k1/m, k2/m, 0, 0;
-    0,0,-l1/cx,l2/cx;
-    -k1*l1/j, k2*l2/j, 0, 0];
-
 Csh = [1,0, 0, 0;
     0, 1, 0, 0;
     0, 0, 1, 0;
     0, 0, 0, 1];
-
 Dsh = zeros(4,4);
 
+fb_tf = [0, cz*l2/(l1+l2),0, -cx/(l1+l2);
+    0, cz*l1/(l1+l2), 0, cx/(l1+l2)];
 
-fb_tf = [0, -cz*l2/(l1+l2),0, -cx/(l1+l2);
-    0, -cz*l1/(l1+l2), 0, cx/(l1+l2)];
-
-<<<<<<< HEAD
 %%
-sys = ss(Ash,Bsh,Csh,Dsh);
-dsys = c2d(sys, h1);
-X = [0;0;0;0];
-for iter = 1:(length(t1)-1)
-    zw1 = u_sin(iter);
-    zw2 = 0;
-    Fa1 = -cx*X(4,iter)/(l1+l2) - cz*l2*X(2,iter)/(l1+l2);
-    Fa2 = cx*X(4,iter)/(l1+l2) - cz*l1*X(2,iter)/(l1+l2);
-    X(:,iter+1) = dsys.A*X(:,iter) + dsys.B*[zw1;zw2;Fa1;Fa2];
-end
-figure,
-plot(t1,u_sin,'g')
-=======
-% Ask=[0 1 0 0
-%     -2*k/m 0 0 0
-%     0 0 0 1
-%     0 0 -2*k*L^2/j 0];
-% Bsk=[0 0 0 0
-%     k/m k/m -1/m -1/m
-%     0 0 0 0
-%     -L*k/j L*k/j L/j -L/j];
-% Csk=[0 1 0 0
-%     0 0 0 1];
-% Dsk=zeros(2,4);
-
-sys_active = ss(Ash,Bsh,Csh,Dsh);
-%%Generate response for passive system
-X_active_sin_1 = genRespActive(sys_active,u_sin_1,h1,cx,cz);
-X_active_sin_2 = genRespActive(sys_active,u_sin_2,h1,cx,cz);
-X_active_step = genRespActive(sys_active,u_step,h2,cx,cz);
-X_active_impulse = genRespActive(sys_active,u_impulse,h3,cx,cz);
-
-subplot(2,2,1),
-plot(t1,u_sin_1,'r');
-hold on
-plot(t1,X_active_sin_1(1,:),'b')
-plot(t1,X_active_sin_1(2,:),'g')
-grid on
-
-subplot(2,2,2),
-plot(t1,u_sin_2,'r');
-hold on
-plot(t1,X_active_sin_2(1,:),'b')
-plot(t1,X_active_sin_2(2,:),'g')
-grid on
-
-subplot(2,2,3),
-plot(t2,u_step,'r');
-hold on
-plot(t2,X_active_step(1,:),'b')
-plot(t2,X_active_step(2,:),'g')
-grid on
-
-subplot(2,2,4),
-plot(t3,u_impulse,'r');
->>>>>>> 0bb8c2762a898fb0fc8cf65b89c99be22310c0cd
-hold on
-plot(t3,X_active_impulse(1,:),'b')
-plot(t3,X_active_impulse(2,:),'g')
-grid on
+% sys = ss(Ash,Bsh,Csh,Dsh);
+% dsys = c2d(sys, h1);
+% X = [0;0;0;0];
+% for iter = 1:(length(t1)-1)
+%     zw1 = u_sin(iter);
+%     zw2 = 0;
+%     Fa1 = -cx*X(4,iter)/(l1+l2) - cz*l2*X(2,iter)/(l1+l2);
+%     Fa2 = cx*X(4,iter)/(l1+l2) - cz*l1*X(2,iter)/(l1+l2);
+%     X(:,iter+1) = dsys.A*X(:,iter) + dsys.B*[zw1;zw2;Fa1;Fa2];
+% end
+% figure,
+% plot(t1,u_sin,'g')
+% % Ask=[0 1 0 0
+% %     -2*k/m 0 0 0
+% %     0 0 0 1
+% %     0 0 -2*k*L^2/j 0];
+% % Bsk=[0 0 0 0
+% %     k/m k/m -1/m -1/m
+% %     0 0 0 0
+% %     -L*k/j L*k/j L/j -L/j];
+% % Csk=[0 1 0 0
+% %     0 0 0 1];
+% % Dsk=zeros(2,4);
+% 
+% sys_active = ss(Ash,Bsh,Csh,Dsh);
+% %%Generate response for passive system
+% X_active_sin_1 = genRespActive(sys_active,u_sin_1,h1,cx,cz);
+% X_active_sin_2 = genRespActive(sys_active,u_sin_2,h1,cx,cz);
+% X_active_step = genRespActive(sys_active,u_step,h2,cx,cz);
+% X_active_impulse = genRespActive(sys_active,u_impulse,h3,cx,cz);
+% 
+% subplot(2,2,1),
+% plot(t1,u_sin_1,'r');
+% hold on
+% plot(t1,X_active_sin_1(1,:),'b')
+% plot(t1,X_active_sin_1(2,:),'g')
+% grid on
+% 
+% subplot(2,2,2),
+% plot(t1,u_sin_2,'r');
+% hold on
+% plot(t1,X_active_sin_2(1,:),'b')
+% plot(t1,X_active_sin_2(2,:),'g')
+% grid on
+% 
+% subplot(2,2,3),
+% plot(t2,u_step,'r');
+% hold on
+% plot(t2,X_active_step(1,:),'b')
+% plot(t2,X_active_step(2,:),'g')
+% grid on
+% 
+% subplot(2,2,4),
+% plot(t3,u_impulse,'r');
+% hold on
+% plot(t3,X_active_impulse(1,:),'b')
+% plot(t3,X_active_impulse(2,:),'g')
+% grid on

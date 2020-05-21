@@ -1,4 +1,4 @@
-%% This is a Matlab file for designing H_infinity controller (assignment 3
+%% This is a Matlab file for comparing all the controllers for vehicle model
 %% of SD2231)
 clear all
 s=tf('s');
@@ -32,9 +32,29 @@ Cpass = eye(4);
 
 Dpass = zeros(4,4);
 
+%% Skyhook controller
+cz = 1e5;
+cx = 3e6;
+
+Ash = [0, 1, 0, 0;
+    -(k1+k2)/m, 0, (k1*l1 - k2*l2)/m, 0;
+    0, 0, 0, 1;
+    (k1*l1 - k2*l2)/j, 0, -(k1*l1*l1 + k2*l2*l2)/j, 0];
+Bsh = [0,0,0,0;
+    k1/m, k2/m, -1/m, -1/m;
+    0,0,0,0;
+    -k1*l1/j, k2*l2/j, l1/j, -l2/j];
+Csh = [1,0, 0, 0;
+    0, 1, 0, 0;
+    0, 0, 1, 0;
+    0, 0, 0, 1];
+Dsh = zeros(4,4);
+
+fb_tf = [0, cz*l2/(l1+l2),0, -cx/(l1+l2);
+    0, cz*l1/(l1+l2), 0, cx/(l1+l2)];
 
 
-%% State space model for skyhook contorl
+%% H_inf using linmod syntax
 Ask=[0 1 0 0
     -2*k/m 0 0 0
     0 0 0 1
@@ -47,7 +67,7 @@ Csk=[0 1 0 0
     0 0 0 1];
 Dsk=zeros(2,4);
 
-%% H_inf using linmod syntax
+
 
 %state space: The same as skyhook
 sys = ss(Ask,Bsk,Csk,Dsk);
@@ -72,32 +92,6 @@ kchi=4.1404e4;%input('Enter the gain for Wchi = ');
 Wb=(kb*s1b*s2b)/((s-s1b)*(s-s2b));
 Wchi=(kchi*s1chi*s2chi)/((s-s1chi)*(s-s2chi));
 
-%%Analysis Weighing function
-% kb_vect = [100;1000;1e4;1e5];
-% Wb1=(kb_vect(1)*s1b*s2b)/((s-s1b)*(s-s2b));
-% Wb2=(kb_vect(2)*s1b*s2b)/((s-s1b)*(s-s2b));
-% Wb3=(kb_vect(3)*s1b*s2b)/((s-s1b)*(s-s2b));
-% Wb4=(kb_vect(4)*s1b*s2b)/((s-s1b)*(s-s2b));
-% figure,
-% bode(Wb1,'r')
-% hold on
-% bode(Wb2,'g')
-% bode(Wb3,'b')
-% bode(Wb4,'k')
-% legend('kb=100','kb=1e3','kb=1e4','kb=1e5')
-% 
-% kchi_vect = [100;1000;1e4;1e5];
-% Wchi1=(kchi_vect(1)*s1chi*s2chi)/((s-s1chi)*(s-s2chi));
-% Wchi2=(kchi_vect(2)*s1chi*s2chi)/((s-s1chi)*(s-s2chi));
-% Wchi3=(kchi_vect(3)*s1chi*s2chi)/((s-s1chi)*(s-s2chi));
-% Wchi4=(kchi_vect(4)*s1chi*s2chi)/((s-s1chi)*(s-s2chi));
-% figure,
-% bode(Wchi1,'r')
-% hold on
-% bode(Wchi2,'g')
-% bode(Wchi3,'b')
-% bode(Wchi4,'k')
-% legend('kchi=100','kchi=1e3','kchi=1e4','kchi=1e5')
 
 %Extracting the extended model
 [A_Pe,B_Pe,C_Pe,D_Pe] = linmod('Extended_model');% state space parameters of the extended system: Pe
@@ -115,43 +109,57 @@ Pe=minreal(Pe);%This syntax cancels pole-zero pairs in transfer
 %updating Csk and Dsk to generate outputs
 Csk=eye(4);
 Dsk=zeros(4,4);
-%Now use the controller K in your simulation
-data = sim('Hinf_simulation.slx');
-data2 = sim('Skyhook_simulation.slx');
+
+%% Defining uncertainity
+k_inc = k*1.15;
+k_dec = k*0.85;
+
+[Ash, Bsh, Ask, Bsk] = getUpdatedModel(m,j,k_inc,L);
+data_inc = sim('lab3_vehicle_complete.slx');
+
+[Ash, Bsh, Ask, Bsk] = getUpdatedModel(m,j,k_dec,L);
+data_dec = sim('lab3_vehicle_complete.slx');
+
 figure,
 subplot(2,2,1),
-plot(data.input_singal,'k');
+plot(data_inc.input_singal,'k');
 xlabel('Time (sec)');
 ylabel('Amplitude Z_{w1} (m)');
 grid on
 
 subplot(2,2,2)
-plot(data.passive_out.Time, data.passive_out.Data(:,1),'b','Linewidth',1)
+plot(data_inc.skyhook_out.Time, data_inc.skyhook_out.Data(:,1),'-.r','Linewidth',1.5)
 hold on
-plot(data.hinf_out.Time, data.hinf_out.Data(:,1),'r','Linewidth',1.5)
+plot(data_inc.hinf_out.Time, data_inc.hinf_out.Data(:,1),'-.b','Linewidth',1.5)
+plot(data_dec.skyhook_out.Time, data_dec.skyhook_out.Data(:,1),'m','Linewidth',1.0)
+plot(data_dec.hinf_out.Time, data_dec.hinf_out.Data(:,1),'c','Linewidth',1.0)
 xlabel('Time (sec)');
 ylabel('Amplitude Z (m)');
-legend('Damped System','H_{\infty} System');
+legend('Skyhook +15%','H_{\infty} +15%','Skyhook -15%','H_{\infty} -15%');
 grid on
 
 subplot(2,2,3)
-plot(data.passive_out.Time, data.passive_out.Data(:,3),'g','Linewidth',1)
+plot(data_inc.skyhook_out.Time, data_inc.skyhook_out.Data(:,3),'-.r','Linewidth',1.0)
 hold on
-plot(data.hinf_out.Time, data.hinf_out.Data(:,3),'m','Linewidth',1.5)
+plot(data_inc.hinf_out.Time, data_inc.hinf_out.Data(:,3),'-.b','Linewidth',1.0)
+plot(data_dec.skyhook_out.Time, data_dec.skyhook_out.Data(:,3),'m','Linewidth',1.0)
+plot(data_dec.hinf_out.Time, data_dec.hinf_out.Data(:,3),'c','Linewidth',1.0)
 xlabel('Time (sec)');
 ylabel('Amplitude \chi (m)');
-legend('Damped System','H_{\infty} System');
+legend('Skyhook +15%','H_{\infty} +15%','Skyhook -15%','H_{\infty} -15%');
 grid on
 
 subplot(2,2,4)
-plot(data.force_output.Time, data.force_output.Data(:,1),'b','Linewidth',1)
+plot(data_inc.skyhook_force_output.Time, data_inc.skyhook_force_output.Data(:,1),'-.r','Linewidth',1.5)
 hold on
-plot(data.force_output.Time, data.force_output.Data(:,2),'r','Linewidth',1)
+plot(data_inc.hinf_force_output.Time, data_inc.hinf_force_output.Data(:,1),'-.b','Linewidth',1.5)
+plot(data_dec.skyhook_force_output.Time, data_dec.skyhook_force_output.Data(:,1),'m','Linewidth',1)
+plot(data_dec.skyhook_force_output.Time, data_dec.skyhook_force_output.Data(:,1),'c','Linewidth',1)
+
 xlabel('Time (sec)');
 ylabel('Amplitude F (N)');
-legend('Fa_1','Fa_2');
+legend('Fa_1 Skyhook +15%','Fa_1 H_{\infty} +15%','Fa_1 Skyhook -15%','Fa_1 H_{\infty} -15%');
 grid on
 
-sgtitle('Impulse response of vehicle model');
-
+sgtitle('Stiffness uncertainity response of vehicle model');
 

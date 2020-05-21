@@ -25,7 +25,6 @@ h2 = 0.01;
 t2 = 0:h2:50;
 u_step = zeros(length(t2),1);
 u_step(t2<1/step_amp) = step_amp;
-
 impulse_amp = 0.03;
 h3 = 0.01;
 t3 = 0:h2:8;
@@ -52,44 +51,16 @@ naturalFreq = eig(A);
 [wn,zeta] = damp(sys_passive);
 % 
 % %%Generate response for passive system
-% X_passive_sin_1 = genRespPassive(sys_passive,u_sin_1,h1);
-% X_passive_sin_2 = genRespPassive(sys_passive,u_sin_2,h1);
-% X_passive_step = genRespPassive(sys_passive,u_step,h2);
-% X_passive_impulse = genRespPassive(sys_passive,u_impulse,h3);
-% 
-% subplot(2,2,1),
-% plot(t1,u_sin_1,'r');
-% hold on
-% plot(t1,X_passive_sin_1(1,:),'b')
-% plot(t1,X_passive_sin_1(2,:),'g')
-% grid on
-% 
-% subplot(2,2,2),
-% plot(t1,u_sin_2,'r');
-% hold on
-% plot(t1,X_passive_sin_2(1,:),'b')
-% plot(t1,X_passive_sin_2(2,:),'g')
-% grid on
-% 
-% subplot(2,2,3),
-% plot(t2,u_step,'r');
-% hold on
-% plot(t2,X_passive_step(1,:),'b')
-% plot(t2,X_passive_step(2,:),'g')
-% grid on
-% 
-% subplot(2,2,4),
-% plot(t3,u_impulse,'r');
-% hold on
-% plot(t3,X_passive_impulse(1,:),'b')
-% plot(t3,X_passive_impulse(2,:),'g')
-% grid on
+X_passive_sin_1 = genRespPassive(sys_passive,u_sin_1,h1);
+X_passive_sin_2 = genRespPassive(sys_passive,u_sin_2,h1);
+X_passive_step = genRespPassive(sys_passive,u_step,h2);
+X_passive_impulse = genRespPassive(sys_passive,u_impulse,h3);
 
 
 %% Skyhook
 %Feedback based
-cz = 5e4;
-cx = 5e4;
+cz = 1e5;
+cx = 3e6;
 Ash = [0, 1, 0, 0;
     -(k1+k2)/m, 0, (k1*l1 - k2*l2)/m, 0;
     0, 0, 0, 1;
@@ -118,35 +89,160 @@ Dsh = zeros(2,4);
 
 sys_active = ss(Ash,Bsh,Csh,Dsh);
 %%Generate response for passive system
-X_active_sin_1 = genRespActive(sys_active,u_sin_1,h1,cx,cz);
-X_active_sin_2 = genRespActive(sys_active,u_sin_2,h1,cx,cz);
-X_active_step = genRespActive(sys_active,u_step,h2,cx,cz);
-X_active_impulse = genRespActive(sys_active,u_impulse,h3,cx,cz);
+[X_active_sin_1, F_sin1] = genRespActive(sys_active,u_sin_1,h1,cx,cz);
+[X_active_sin_2, F_sin2] = genRespActive(sys_active,u_sin_2,h1,cx,cz);
+[X_active_step, F_step] = genRespActive(sys_active,u_step,h2,cx,cz);
+[X_active_impulse, F_impulse] = genRespActive(sys_active,u_impulse,h3,cx,cz);
 
+figure,
 subplot(2,2,1),
-plot(t1,u_sin_1,'r');
-hold on
-plot(t1,X_active_sin_1(1,:),'b')
-plot(t1,X_active_sin_1(2,:),'g')
+plot(t1,u_sin_1,'k');
+xlabel('Time (sec)');
+ylabel('Amplitude Z_{w1} (m)');
 grid on
 
-subplot(2,2,2),
-plot(t1,u_sin_2,'r');
+subplot(2,2,2)
+plot(t1,X_passive_sin_1(1,:),'b','Linewidth',1)
 hold on
-plot(t1,X_active_sin_2(1,:),'b')
-plot(t1,X_active_sin_2(2,:),'g')
+plot(t1,X_active_sin_1(1,:),'r','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude Z (m)');
+legend('Damped System','Skyhook System');
 grid on
 
-subplot(2,2,3),
-plot(t2,u_step,'r');
+subplot(2,2,3)
+plot(t1,X_passive_sin_1(3,:),'g','Linewidth',1)
 hold on
-plot(t2,X_active_step(1,:),'b')
-plot(t2,X_active_step(2,:),'g')
+plot(t1,X_active_sin_1(3,:),'m','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude \chi (m)');
+legend('Damped System','Skyhook System');
 grid on
 
-subplot(2,2,4),
-plot(t3,u_impulse,'r');
+subplot(2,2,4)
+plot(t1,F_sin1(1,:),'b','Linewidth',1)
 hold on
-plot(t3,X_active_impulse(1,:),'b')
-plot(t3,X_active_impulse(2,:),'g')
+plot(t1,F_sin1(2,:),'r','Linewidth',1)
+xlabel('Time (sec)');
+ylabel('Amplitude F (N)');
+legend('Fa_1','Fa_2');
 grid on
+
+sgtitle('Sinusoidal (1 Hz) response of vehicle model');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+figure,
+subplot(2,2,1),
+plot(t1,u_sin_2,'k');
+xlabel('Time (sec)');
+ylabel('Amplitude Z_{w1} (m)');
+grid on
+
+subplot(2,2,2)
+plot(t1,X_passive_sin_2(1,:),'b','Linewidth',1)
+hold on
+plot(t1,X_active_sin_2(1,:),'r','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude Z (m)');
+legend('Damped System','Skyhook System');
+grid on
+
+subplot(2,2,3)
+plot(t1,X_passive_sin_2(3,:),'g','Linewidth',1)
+hold on
+plot(t1,X_active_sin_2(3,:),'m','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude \chi (m)');
+legend('Damped System','Skyhook System');
+grid on
+
+subplot(2,2,4)
+plot(t1,F_sin2(1,:),'b','Linewidth',1)
+hold on
+plot(t1,F_sin2(2,:),'r','Linewidth',1)
+xlabel('Time (sec)');
+ylabel('Amplitude F (N)');
+legend('Fa_1','Fa_2');
+grid on
+
+sgtitle('Sinusoidal (8 Hz) response of vehicle model');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+figure,
+subplot(2,2,1),
+plot(t2,u_step,'k','Linewidth',2);
+xlabel('Time (sec)');
+ylabel('Amplitude Z_{w1} (m)');
+grid on
+
+subplot(2,2,2)
+plot(t2,X_passive_step(1,:),'b','Linewidth',1)
+hold on
+plot(t2,X_active_step(1,:),'r','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude Z (m)');
+legend('Damped System','Skyhook System');
+grid on
+
+subplot(2,2,3)
+plot(t2,X_passive_step(3,:),'g','Linewidth',1)
+hold on
+plot(t2,X_active_step(3,:),'m','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude \chi (m)');
+legend('Damped System','Skyhook System');
+grid on
+
+subplot(2,2,4)
+plot(t2,F_step(1,:),'b','Linewidth',1)
+hold on
+plot(t2,F_step(2,:),'r','Linewidth',1)
+xlabel('Time (sec)');
+ylabel('Amplitude F (N)');
+legend('Fa_1','Fa_2');
+grid on
+
+sgtitle('Step response of vehicle model');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+figure,
+subplot(2,2,1),
+plot(t3,u_impulse,'k','Linewidth',2);
+xlabel('Time (sec)');
+ylabel('Amplitude Z_{w1} (m)');
+grid on
+
+subplot(2,2,2)
+plot(t3,X_passive_impulse(1,:),'b','Linewidth',1)
+hold on
+plot(t3,X_active_impulse(1,:),'r','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude Z (m)');
+legend('Damped System','Skyhook System');
+grid on
+
+subplot(2,2,3)
+plot(t3,X_passive_impulse(3,:),'g','Linewidth',1)
+hold on
+plot(t3,X_active_impulse(3,:),'m','Linewidth',1.5)
+xlabel('Time (sec)');
+ylabel('Amplitude \chi (m)');
+legend('Damped System','Skyhook System');
+grid on
+
+subplot(2,2,4)
+plot(t3,F_impulse(1,:),'b','Linewidth',1)
+hold on
+plot(t3,F_impulse(2,:),'r','Linewidth',1)
+xlabel('Time (sec)');
+ylabel('Amplitude F (N)');
+legend('Fa_1','Fa_2');
+grid on
+
+sgtitle('Impulse response of vehicle model');
+
+
+
+
