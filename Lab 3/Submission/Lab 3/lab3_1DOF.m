@@ -285,11 +285,12 @@ legend('Input','Output damped','Output PD','Output active PID', 'Output active s
 
 %%Task 5.2
 %%Bode plot
-bode(tf_damped);
+figure,
+bodemag(tf_damped);
 hold on
-bode(tf_pd_tuned);
-bode(tf_pid);
-bode(tf_skyhook);
+bodemag(tf_pd_tuned);
+bodemag(tf_pid);
+bodemag(tf_skyhook);
 grid on
 legend('Passive system damped','Active system PD','Active system  PID', 'Active system skyhook')
 

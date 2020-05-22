@@ -71,6 +71,13 @@ kchi=4.1404e4;%input('Enter the gain for Wchi = ');
 Wb=(kb*s1b*s2b)/((s-s1b)*(s-s2b));
 Wchi=(kchi*s1chi*s2chi)/((s-s1chi)*(s-s2chi));
 
+figure,
+bodemag(Wb)
+hold on
+bodemag(Wchi)
+bodemag(Wa1)
+legend('W_b','W_\chi','W_a1');
+grid on
 
 %%Analysis Weighing function
 % kb_vect = [100;1000;1e4;1e5];
